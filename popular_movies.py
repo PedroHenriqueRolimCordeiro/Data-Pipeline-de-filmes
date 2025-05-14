@@ -32,37 +32,4 @@ for pagina in range(1,num_paginas + 1): #Loop para percorrer as páginas de film
 
 #Converter a lista para um DataFrame Polars
 df = pl.DataFrame(todos_filmes)
-print(df.head())
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+print(df)

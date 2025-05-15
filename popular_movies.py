@@ -4,6 +4,8 @@ import os
 from dotenv import load_dotenv
 import tmdbsimple as tmdb
 import polars as pl
+import json #Apenas para Testes
+
 
 load_dotenv()
 
@@ -33,3 +35,17 @@ for pagina in range(1,num_paginas + 1): #Loop para percorrer as páginas de film
 #Converter a lista para um DataFrame Polars
 df = pl.DataFrame(todos_filmes)
 print(df)
+print(df.columns)
+
+dados_adicionais = []
+"""
+#for row in df.iter_rows(named=True):
+ #       filmes_dados = tmdb.Movies(["id"])
+  #      filmes_info = filmes_dados.info()
+
+movie = tmdb.Movies(950387)  # Exemplo: Clube da Luta
+info = movie.info()
+
+# Imprime tudo de forma organizada
+print(json.dumps(info, indent=4, ensure_ascii=False))
+"""

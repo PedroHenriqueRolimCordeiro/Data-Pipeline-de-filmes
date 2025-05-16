@@ -17,6 +17,23 @@ num_paginas = 1 #Numero de páginas que vão ser utilizadas. Cada página possui
 
 filmes = tmdb.Movies() #Inicializar o objeto da classe Movies para interagir com a API TMDB
 
+# Função para obter créditos (diretores) de um filme
+def obter_diretor(movie_id):
+    try:
+        movie = tmdb.Movies(movie_id)
+        credits = movie.credits(language='pt-BR')
+
+        # Filtra a lista de equipe para encontrar diretores
+        diretores = [crew['name'] for crew in credits['crew'] if crew['job'] == 'Director']
+        return diretores if diretores else ['Não Disponível']
+    except Exception as e:
+        print(f"Erro ao obter diretor para o filme {movie_id}: {e}")
+        return ["Não disponível"]
+    
+
+# Função para obter detalhes adicionais de um filme
+
+     
 
 for pagina in range(1,num_paginas + 1): #Loop para percorrer as páginas de filmes
 

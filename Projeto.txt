@@ -6,13 +6,13 @@ release_date X
 popularity X
 vote_average X
 vote_count X
-budget
-revenue
-runtime
+budget X
+revenue X
+runtime  X
 original_title X
 orignal_language X
-production_companys
-status
-director
-overview X
-backdrop_path e poster_path X
+production_companys X
+status X
+director X 
+overview 
+backdrop_path e poster_path 

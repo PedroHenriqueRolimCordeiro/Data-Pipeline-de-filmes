@@ -4,7 +4,7 @@ import os
 from dotenv import load_dotenv
 import tmdbsimple as tmdb
 import polars as pl
-import json #Apenas para Testes
+
 
 
 load_dotenv()
@@ -33,8 +33,34 @@ def obter_diretor(movie_id):
 
 # Função para obter detalhes adicionais de um filme
 
-     
+def obter_detalhes_filmes(movie_id):
+    try:
+        movie = tmdb.Movies(movie_id)
+        details = movie.info(language='pt-BR')
 
+        #Extrai informações de companhias de produção
+        production_companies = [company['name'] for company in details.get('production_companies', [])]
+
+
+        return {
+            'budget' : details.get('budget', 0),
+            'revenue': details.get('revenue', 0),
+            'runtime': details.get('runtime', 0),
+            'status': details.get('status', 'Desconhecido'),
+            'production_companies': production_companies
+        }
+    except Exception as e:
+        print(f"Erro ao obter detalhes para o filme {movie_id}: {e}")
+        return {
+            'budget': 0,
+            'revenue': 0,
+            'runtime': 0,
+            'status': 'Erro',
+            'production_companies': []
+        }
+
+    
+#Loop para percorrer as páginas 
 for pagina in range(1,num_paginas + 1): #Loop para percorrer as páginas de filmes
 
     try:
@@ -49,20 +75,51 @@ for pagina in range(1,num_paginas + 1): #Loop para percorrer as páginas de film
         print(f"Erro na pagina {pagina}: {e}") 
         break
 
-#Converter a lista para um DataFrame Polars
-df = pl.DataFrame(todos_filmes)
-print(df)
-print(df.columns)
+df_basico = pl.DataFrame(todos_filmes)
 
-dados_adicionais = []
-"""
-#for row in df.iter_rows(named=True):
- #       filmes_dados = tmdb.Movies(["id"])
-  #      filmes_info = filmes_dados.info()
+filmes_completos = []
 
-movie = tmdb.Movies(950387)  # Exemplo: Clube da Luta
-info = movie.info()
+for filme in todos_filmes:
+    movie_id = filme['id']
+    print(f"Obtendo detalhes extras para o filme {filme['title']} (ID: {movie_id})")
 
-# Imprime tudo de forma organizada
-print(json.dumps(info, indent=4, ensure_ascii=False))
-"""
+    #chamada da função para obter os detalhes
+    detalhes = obter_detalhes_filmes(movie_id)
+
+    #chamada da função para obter os diretores
+    diretores = obter_diretor(movie_id)
+
+    #Criar um dicionário que guarde todos os dados do filme
+    filme_completo = {
+        'id': movie_id,
+        'genre_ids': filme.get('genre_ids',[]),
+        'title': filme.get('title', 'Sem título'),
+        'release_date': filme.get('release_date', ''),
+        'popularity': filme.get('popularity', 0),
+        'vote_average': filme.get('vote_average', 0),
+        'vote_count': filme.get('vote_count', 0),
+        'overview': filme.get('overview',''),
+        'budget': detalhes['budget'],
+        'revenue': detalhes['revenue'],
+        'runtime': detalhes['runtime'],
+        'original_title': filme.get('original_title', ''),
+        'original_language': filme.get('original_language',''),
+        'production_companies': detalhes['production_companies'],
+        'status': detalhes['status'],
+        'director': diretores,
+        'poster_path': filme.get('poster_path', ''),
+        'backdrop_path': filme.get('backdrop_path','')
+    }
+
+    filmes_completos.append(filme_completo)
+
+    #Adicionar pausa para evitar limite de taxa da API
+
+    time.sleep(0.5)
+
+# DataFrame Final com todos os dados
+df_final = pl.DataFrame(filmes_completos)
+
+print(df_final.head)
+
+df_final.write_parquet("filmes_tmdb_completos.parquet")

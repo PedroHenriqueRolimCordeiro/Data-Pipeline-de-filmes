@@ -20,7 +20,7 @@ filmes = tmdb.Movies() #Inicializar o objeto da classe Movies para interagir com
 for pagina in range(1,num_paginas + 1): #Loop para percorrer as páginas de filmes
 
     try:
-        resposta = filmes.popular(page=pagina, language='pt-BR')
+        resposta = filmes.top_rated(page=pagina, language='pt-BR')
         resultados = resposta.get('results',[])
         todos_filmes.extend(resultados)
 
@@ -76,7 +76,6 @@ for filme in todos_filmes:
 # DataFrame Final com todos os dados
 df_final = pl.DataFrame(filmes_completos)
 
-print(df_final.head())
-print(df_final.schema)
+print(df_final.head)
 
 #df_final.write_parquet("filmes_tmdb_completos_.parquet")

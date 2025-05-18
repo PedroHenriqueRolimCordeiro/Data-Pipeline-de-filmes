@@ -3,3 +3,4 @@ venv/
 popular_movies.parquet
 Projeto
 filmes_tmdb_completos.parquet
+processos_downloads.py

@@ -109,3 +109,83 @@ def verificar_qualidades_dados_lazy(df):
 
     
     return lf
+
+def tratar_dados_lazy(df):
+    if not isinstance(df, pl.LazyFrame):
+        lf = df.lazy()
+    else:
+        lf = df
+
+    print("TRATAMENTO DE DADOS")
+
+    # Coleta do schema para análise de tipos de colunas
+    schema = lf.collect().schema 
+
+    # Classificação por tipo
+    strings_cols = [col for col, dtype in schema.items() if dtype == pl.Utf8]
+    num_cols = [col for col, dtype in schema.items() if dtype in [pl.Int64, pl.Float64]]
+    list_cols = [col for col, dtype in schema.items() if str(dtype).startswith('List')]
+
+    # 1. Remover linhas sem título ou id
+    lf = lf.drop_nulls(["title", "id"])
+
+    # 2. Tratamento de datas
+    if "release_date" in schema:
+        lf = lf.with_columns(
+            pl.when(pl.col("release_date").is_null() | (pl.col("release_date") == ""))
+            .then("1800-01-01")
+            .when(~pl.col("release_date").str.contains(r"^\d{4}-\d{2}-\d{2}$"))
+            .then("1800-01-01")
+            .otherwise(pl.col("release_date"))
+            .alias("release_date")
+        )
+
+    # 3. Substituir strings vazias por None
+    if strings_cols:
+        lf = lf.with_columns([
+            pl.when(pl.col(col) == "").then(None).otherwise(pl.col(col)).alias(col)
+            for col in strings_cols
+        ])
+
+    # 4. Substituir valores zerados por None em colunas específicas
+    zerados_null_cols = ["budget", "revenue", "runtime"]
+    for col in zerados_null_cols:
+        if col in schema:
+            lf = lf.with_columns([
+                pl.when(pl.col(col) == 0).then(None).otherwise(pl.col(col)).alias(col)
+            ])
+
+    # 5. Substituir listas vazias por None
+    if list_cols:
+        lf = lf.with_columns([
+            pl.when(pl.col(col).list.len() == 0).then(None).otherwise(pl.col(col)).alias(col)
+            for col in list_cols
+        ])
+
+    # 6. Correção de valores fora da escala de vote_average
+    if "vote_average" in schema:
+        lf = lf.with_columns([
+            pl.when(pl.col("vote_average") > 10).then(10)
+            .when(pl.col("vote_average") < 0).then(0)
+            .otherwise(pl.col("vote_average"))
+            .alias("vote_average")
+        ])
+
+    # 7. Substituir valores negativos por None em colunas que não aceitam negativos
+    negativos_null_cols = ["revenue", "runtime", "budget", "vote_count", "popularity"]
+    for col in negativos_null_cols:
+        if col in schema:
+            lf = lf.with_columns([
+                pl.when(pl.col(col) < 0).then(None).otherwise(pl.col(col)).alias(col)
+            ])
+
+    return lf
+
+
+
+
+
+
+
+    
+    

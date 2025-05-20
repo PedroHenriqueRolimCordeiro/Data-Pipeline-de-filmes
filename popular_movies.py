@@ -12,9 +12,8 @@ TMDB_API_KEY = os.getenv("TMDB_API_KEY")
 tmdb.API_KEY = TMDB_API_KEY
 
 todos_filmes = []  # lista onde sera armazenadas os filmes
-num_paginas = (
-    1  # Numero de páginas que vão ser utilizadas. Cada página possui ≈ 20 filmes
-)
+num_paginas = 1  # Numero de páginas que vão ser utilizadas. Cada página possui ≈ 20 filmes
+
 
 filmes = (
     tmdb.Movies()

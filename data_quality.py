@@ -2,6 +2,10 @@ import tmdbsimple as tmdb
 from datetime import datetime
 import polars as pl
 from pathlib import Path
+import os
+from dotenv import load_dotenv
+
+load_dotenv() #carregar as variaveis .env
 
 #Verificação da qualidades dos dados
 def verificar_qualidades_dados_lazy(df):
@@ -107,85 +111,95 @@ def verificar_qualidades_dados_lazy(df):
         print(f"Avaliações fora da escala 0-10: {fora_escala}")
         print("\n")
 
-    
+    print("FIM DA VERIFICACAO")    
     return lf
 
-def tratar_dados_lazy(df):
+def tratar_e_preencher_titulos(df):
+    """
+    Realiza o tratamento e preenchimento da coluna 'title' em um Polars DataFrame/LazyFrame.
+
+    Args:
+        df (pl.DataFrame or pl.LazyFrame): O DataFrame ou LazyFrame de entrada.
+        path_csv_preenchimento (str): O caminho para o arquivo CSV com IDs e títulos para preenchimento.
+
+    Returns:
+        pl.LazyFrame: O LazyFrame com a coluna 'title' tratada e preenchida.
+    """
+    # Converte para LazyFrame, se necessário, para garantir o fluxo otimizado
     if not isinstance(df, pl.LazyFrame):
         lf = df.lazy()
     else:
         lf = df
 
-    print("TRATAMENTO DE DADOS")
+    path_csv_preenchimento = os.getenv("PATH_CSV_FILL")
+    if path_csv_preenchimento is None:
+        raise ValueError("O caminho para o CSV não foi encontrado")
+    print("Iniciando o tratamento de dados e preenchimento de títulos...")
 
-    # Coleta do schema para análise de tipos de colunas
-    schema = lf.collect().schema 
+    # --- 1. Tratamento inicial da coluna 'id' ---
+    # Garante que 'id' é um número inteiro e remove linhas onde não é possível converter
+    lf = lf.filter(pl.col("id").cast(pl.Int64, strict=False).is_not_null())
+    print(" - IDs tratados (garantindo que são números).")
 
-    # Classificação por tipo
-    strings_cols = [col for col, dtype in schema.items() if dtype == pl.Utf8]
-    num_cols = [col for col, dtype in schema.items() if dtype in [pl.Int64, pl.Float64]]
-    list_cols = [col for col, dtype in schema.items() if str(dtype).startswith('List')]
+    # --- 2. Preparação para preenchimento de títulos a partir de CSV externo ---
+    print(" - Carregando e preparando dados para preenchimento de títulos...")
+    df_titulos_extras = pl.read_csv(path_csv_preenchimento)
 
-    # 1. Remover linhas sem título ou id
-    lf = lf.drop_nulls(["title", "id"])
+    # Renomeia a coluna de título do CSV externo para evitar conflito de nomes
+    df_titulos_extras = df_titulos_extras.rename({"title": "new_title"})
 
-    # 2. Tratamento de datas
-    if "release_date" in schema:
-        lf = lf.with_columns(
-            pl.when(pl.col("release_date").is_null() | (pl.col("release_date") == ""))
-            .then("1800-01-01")
-            .when(~pl.col("release_date").str.contains(r"^\d{4}-\d{2}-\d{2}$"))
-            .then("1800-01-01")
-            .otherwise(pl.col("release_date"))
-            .alias("release_date")
-        )
+    # Limpa a lista extra de títulos: remove nulos e strings vazias/apenas com espaços
+    df_titulos_extras = df_titulos_extras.filter(
+        pl.col("new_title").is_not_null() & (pl.col("new_title").str.strip_chars().str.len_bytes() > 0)
+    )
+    # Remove títulos duplicados na lista extra, mantendo apenas um por ID
+    df_titulos_extras = df_titulos_extras.unique(subset=["id"])
+    print(" - Dados externos de títulos preparados.")
 
-    # 3. Substituir strings vazias por None
-    if strings_cols:
-        lf = lf.with_columns([
-            pl.when(pl.col(col) == "").then(None).otherwise(pl.col(col)).alias(col)
-            for col in strings_cols
-        ])
+    # --- 3. Preenchimento da coluna 'title' com dados externos ---
+    # Realiza um LEFT JOIN para trazer os 'new_title' para o LazyFrame principal
+    # Mantém todas as linhas do seu LazyFrame original
+    lf = lf.join(
+        df_titulos_extras.lazy(), # Converte para LazyFrame para o join otimizado
+        on="id",                  # A coluna 'id' conecta as duas tabelas
+        how="left"                # 'left' join: mantém todas as linhas de 'lf'
+    )
+    print(" - Join com dados externos realizado.")
 
-    # 4. Substituir valores zerados por None em colunas específicas
-    zerados_null_cols = ["budget", "revenue", "runtime"]
-    for col in zerados_null_cols:
-        if col in schema:
-            lf = lf.with_columns([
-                pl.when(pl.col(col) == 0).then(None).otherwise(pl.col(col)).alias(col)
-            ])
+    # Usa 'coalesce' para preencher 'title':
+    # 1. Tenta usar o valor original de 'title'.
+    # 2. Se 'title' for nulo, tenta usar 'new_title' (do CSV externo).
+    lf = lf.with_columns(
+        pl.coalesce([
+            pl.col("title"),    # Prioriza o título existente
+            pl.col("new_title") # Se o existente for nulo, usa o do CSV
+        ]).alias("title") # O resultado volta para a coluna 'title'
+    )
+    print(" - Títulos preenchidos usando dados externos.")
 
-    # 5. Substituir listas vazias por None
-    if list_cols:
-        lf = lf.with_columns([
-            pl.when(pl.col(col).list.len() == 0).then(None).otherwise(pl.col(col)).alias(col)
-            for col in list_cols
-        ])
+    # Remove a coluna temporária 'new_title' que foi usada para o preenchimento
+    lf = lf.drop("new_title")
+    print(" - Coluna temporária 'new_title' removida.")
 
-    # 6. Correção de valores fora da escala de vote_average
-    if "vote_average" in schema:
-        lf = lf.with_columns([
-            pl.when(pl.col("vote_average") > 10).then(10)
-            .when(pl.col("vote_average") < 0).then(0)
-            .otherwise(pl.col("vote_average"))
-            .alias("vote_average")
-        ])
+    # --- 4. Limpeza final e padronização da coluna 'title' ---
+    # Remove linhas onde 'title' é NULO ou uma string vazia (após o preenchimento e strip)
+    # Isso é importante para pegar casos onde o ID não foi encontrado no CSV extra
+    # OU o CSV extra também tinha um título vazio/nulo para aquele ID.
+    lf = lf.filter(
+        pl.col("title").is_not_null() & (pl.col("title").str.strip_chars().str.len_bytes() > 0)
+    )
+    print(" - Linhas com títulos vazios ou nulos removidas após preenchimento.")
 
-    # 7. Substituir valores negativos por None em colunas que não aceitam negativos
-    negativos_null_cols = ["revenue", "runtime", "budget", "vote_count", "popularity"]
-    for col in negativos_null_cols:
-        if col in schema:
-            lf = lf.with_columns([
-                pl.when(pl.col(col) < 0).then(None).otherwise(pl.col(col)).alias(col)
-            ])
+    # Remove linhas duplicadas com base no valor da coluna 'title'
+    lf = lf.unique(subset=["title"])
+    print(" - Títulos duplicados removidos.")
 
+    # Preenche quaisquer NULOS restantes na coluna 'title' (se houver, como fallback)
+    lf = lf.with_columns(
+        pl.col("title").fill_null("title unknown")
+    )
+    print(" - Nulos finais em 'title' preenchidos com 'title unknown'.")
+
+    print("Tratamento de dados concluído!")
     return lf
-
-
-
-
-
-
-
-    
     

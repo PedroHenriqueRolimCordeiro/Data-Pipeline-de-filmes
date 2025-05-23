@@ -202,4 +202,18 @@ def tratar_e_preencher_titulos(df):
 
     print("Tratamento de dados concluído!")
     return lf
-    
+'''   
+def tratar_e_preencher_genre_id(df):
+    if not isinstance(df, pl.LazyFrame):
+        lf = df.lazy()
+    else:
+        lf = df
+
+    path_csv_preenchimento = os.getenv("PATH_CSV_FILL")
+    if path_csv_preenchimento is None:
+        raise ValueError("O caminho para o CSV não foi encontrado")
+    print("Iniciando o tratamento de dados e preenchimento de generos...")
+
+
+    df_generos_extras = df_generos_extras.rename({"genre_id"})
+'''

@@ -79,7 +79,7 @@ for filme in todos_filmes:
 # DataFrame Final com todos os dados
 df_final = pl.DataFrame(filmes_completos)
 
-print(df_final.head())
+#print(df_final.head())
 print(df_final.schema)
 
 # df_final.write_parquet("filmes_tmdb_completos_.parquet")

@@ -11,8 +11,10 @@ load_dotenv()
 
 TMDB_API_KEY = os.getenv("TMDB_API_KEY")
 
-
-
+df = pl.read_parquet("/home/pedro/Pipeline ETL movies/filmes_tmdb_completos.parquet")
+#print(df.head())
+print(df.head)
+print(df.schema)
 
 
 

@@ -5,14 +5,14 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 
-load_dotenv() #carregar as variaveis .env
+load_dotenv() # Carrega as variáveis de ambiente do arquivo .env
 
-#Verificação da qualidades dos dados
+# Função para verificar a qualidade dos dados
 def verificar_qualidades_dados_lazy(df):
     if not isinstance(df, pl.LazyFrame):
-        lf = df.lazy()
+        lazy_frame = data_frame.lazy()
     else:
-        lf = df
+        lazy_frame = df
 
     print("ANALISE DE QUALIDADE DE DADOS")
 
@@ -20,7 +20,7 @@ def verificar_qualidades_dados_lazy(df):
     colunas = list(schema.keys())
 
     resultados = {}
-    #1 Contagem de valores nulos por coluna
+    # Verifica quantos valores nulos existem por coluna
     null_counts = lf.select([
         pl.col(col).null_count().alias(f"{col}_null")
         for col in lf.collect_schema().names()
@@ -28,7 +28,7 @@ def verificar_qualidades_dados_lazy(df):
     print(null_counts)
     print("\n")
 
-    #2 Contagem de strings vazias em colunas de texto
+    # Conta strings vazias nas colunas de texto
     string_cols = [col for col, 
                    dtype in schema.items() 
                    if dtype == pl.Utf8]
@@ -41,7 +41,7 @@ def verificar_qualidades_dados_lazy(df):
         print(string_vazia)
         print("\n")
     
-    #3 Contagem de zeros em colunas numéricas
+    # Verifica se há muitos valores zero em colunas numéricas
     num_cols = [col for col,
                 dtype in schema.items()
                 if dtype in [pl.Int64, pl.Float64]]
@@ -53,7 +53,7 @@ def verificar_qualidades_dados_lazy(df):
         ]).collect()
         print(zeros)
 
-    #4 Listas vazias em colunas de lista
+    # Conta listas vazias (sem elementos)
     list_cols = [col for col,
                  dtype in schema.items()
                  if str(dtype).startswith('List')]
@@ -67,14 +67,14 @@ def verificar_qualidades_dados_lazy(df):
         print("\n")
 
     
-    #5 Estastísticas resumidas para colunas numéricas
+    # Mostra estatísticas básicas (média, min, max, etc.)
     if num_cols:
         print("ESTATÍSTICAS RESUMIDAS PARA COLUNAS NUMÉRICAS")
         stats = lf.select(num_cols).collect().describe()
         print(stats)
         print("\n")
 
-    #6 Verificar datas inválidas ou futuras
+    # Tenta identificar datas mal formatadas
     if 'release_date' in lf.collect_schema().names():
         print("ANÁLISE DE DATAS DE LANÇAMENTOS")
 
@@ -88,7 +88,7 @@ def verificar_qualidades_dados_lazy(df):
     #Adicionar verificação para datas futuras
 
 
-    #7 Verificar valores negativos onde não faz sentido
+    # Verifica se há valores negativos onde não deveriam existir
     neg_cols = ['vote_count', 'budget', 'revenue', 'runtime']
     neg_cols_presentes = [col for col in neg_cols
                           if col in lf.collect_schema().names()]
@@ -102,7 +102,7 @@ def verificar_qualidades_dados_lazy(df):
         print("\n")
 
 
-    #8 Verificar valores de avaliação fora da escala esperada
+    # Garante que as notas estejam dentro da escala 0-10
     if 'vote_average' in lf.collect_schema().names():
         print("VALORES DE AVALIAÇÃO FORA DA ESCALA (0-10):")
         fora_escala = lf.filter(
@@ -116,7 +116,7 @@ def verificar_qualidades_dados_lazy(df):
 
 import polars as pl
 
-def tratar_titulos(df: pl.DataFrame | pl.LazyFrame) -> pl.LazyFrame:
+def tratar_titulos_dos_filmes(df: pl.DataFrame | pl.LazyFrame) -> pl.LazyFrame:
     """
     Realiza o tratamento da coluna 'title' em um Dataframe/LazyFrame.
 
@@ -128,13 +128,13 @@ def tratar_titulos(df: pl.DataFrame | pl.LazyFrame) -> pl.LazyFrame:
     """
     # Converte para LazyFrame, se necessário, para garantir o fluxo otimizado
     if not isinstance(df, pl.LazyFrame):
-        lf = df.lazy()
+        lazy_frame = data_frame.lazy()
     else:
-        lf = df
+        lazy_frame = df
     # 1. Limpeza e Padronização da coluna 'title'
     # Garante que 'title' é uma string, remove espaços em branco de início/fim,
     # padroniza strings vazias ("") para nulos.
-    lf = lf.with_columns([
+    lazy_frame = lf.with_columns([
         pl.col('title')
         .cast(pl.Utf8, strict=False)  # Converte para string, falhas resultam em nulos
         .str.strip_chars()            # Remove espaços em branco do início e fim
@@ -144,13 +144,13 @@ def tratar_titulos(df: pl.DataFrame | pl.LazyFrame) -> pl.LazyFrame:
 
     # 2. Remoção de valores nulos
     # Linhas onde 'title' é nulo são descartadas.
-    lf = lf.filter(
+    lazy_frame = lf.filter(
         pl.col("title").is_not_null()
     )
 
     # 3. Conversão para caixa padrão (Título)
     # A primeira letra de cada palavra em 'title' é capitalizada.
-    lf = lf.with_columns([
+    lazy_frame = lf.with_columns([
         pl.col("title").str.to_titlecase().alias("title")
     ])
 
@@ -178,33 +178,33 @@ def tratar_generos(df: pl.DataFrame | pl.LazyFrame, genero_mapa: dict) -> pl.Laz
         pl.LazyFrame: O LazyFrame com a nova coluna 'genero'.
     """
     if not isinstance(df, pl.LazyFrame):
-        lf = df.lazy()
+        lazy_frame = data_frame.lazy()
     else:
-        lf = df
+        lazy_frame = df
     
     #Tratar valores nulos ou vazios antes do mapeamento 
-    lf = lf.with_columns([
+    lazy_frame = lf.with_columns([
         pl.col("genre_ids")
         .cast(pl.List(pl.Int64), strict=False) #Garante que é uma lista de inteiros
         .fill_null(pl.lit([]).cast(pl.List(pl.Int64))) #Preenche nulos com listas vazias para evitar erros
-        .alias("genre_ids_cleaned") #Coluna temporaria para limpeza
+        .alias("genre_ids_cleaned") # Cria uma nova coluna só pra garantir que os dados estejam no formato certo
     ])
 
     # Mapeia cada id da lista para seu respectivo nome
-    lf = lf.with_columns([
+    lazy_frame = lf.with_columns([
         pl.col("genre_ids_cleaned")
-        .list.eval(pl.element().replace(genero_mapa, default=pl.element())) # Aplica o mapeamento para cada elemento da lista
+        .list.eval(pl.element().replace(genero_mapa, default=pl.element())) # Troca os IDs dos gêneros pelos nomes
         .alias("genero")
     ])
 
 
-    # Remover a coluna 'genre_id' original e o 'genre_ids_cleaned'
-    lf = lf.drop("genre_ids")
-    lf = lf.drop("genre_ids_cleaned")
+    # Remove colunas que não precisamos mais depois da conversão
+    lazy_frame = lf.drop("genre_ids")
+    lazy_frame = lf.drop("genre_ids_cleaned")
     return lf
 
 
-def tratar_datas(df: pl.DataFrame | pl.LazyFrame) -> pl.LazyFrame:
+def tratar_datas_de_lancamento(df: pl.DataFrame | pl.LazyFrame) -> pl.LazyFrame:
     """
     Trata a coluna 'release_date', convertendo-a para o tipo Date do Polars.
     Lida com possíveis valores nulos ou formatos inválidos.
@@ -216,13 +216,13 @@ def tratar_datas(df: pl.DataFrame | pl.LazyFrame) -> pl.LazyFrame:
         pl.LazyFrame: O LazyFrame com a coluna 'release_date' tratada.
     """
     if not isinstance(df, pl.LazyFrame):
-        lf = df.lazy()
+        lazy_frame = data_frame.lazy()
     else:
-        lf = df
+        lazy_frame = df
 
     print(" - Iniciando tratamento da coluna 'release_date'.")
 
-    lf = lf.with_columns([
+    lazy_frame = lf.with_columns([
         # Converte a coluna 'release_date' para o tipo Date
         # Se a string não pode ser convertida, o valor sera nulo
         pl.col("release_date")
@@ -231,14 +231,14 @@ def tratar_datas(df: pl.DataFrame | pl.LazyFrame) -> pl.LazyFrame:
         .alias("release_date")
     ])
 
-    #lf = lf.filter(pl.col("release_date").is_not_null())
+    #lazy_frame = lf.filter(pl.col("release_date").is_not_null())
     #print(" - Removidas linhas com 'release_date' inválida ou nula.")
 
     print(" - Coluna 'release_date' tratada e convertida para o tipo Date.")
     return lf
 
 
-def tratar_popularidade(df: pl.DataFrame | pl.LazyFrame) -> pl.LazyFrame:
+def tratar_popularidade_do_filme(df: pl.DataFrame | pl.LazyFrame) -> pl.LazyFrame:
     """
     Trata a coluna 'popularity', garantindo que é um Float64,
     lidando com nulos e opcionalmente arredondando.
@@ -250,13 +250,13 @@ def tratar_popularidade(df: pl.DataFrame | pl.LazyFrame) -> pl.LazyFrame:
         pl.LazyFrame: O LazyFrame com a coluna 'popularity' tratada.
     """
     if not isinstance(df, pl.LazyFrame):
-        lf = df.lazy()
+        lazy_frame = data_frame.lazy()
     else:
-        lf = df
+        lazy_frame = df
 
     print(" - Iniciando tratamento da coluna 'popularity'.")
 
-    lf = lf.with_columns([
+    lazy_frame = lf.with_columns([
         pl.col("popularity")
         .cast(pl.Float64, strict=False) # Garante que é Float64; se não for, vira nulo
         .fill_null(0.0)                 # Preenche valores nulos com 0.0 (ou outro valor padrão)
@@ -267,7 +267,7 @@ def tratar_popularidade(df: pl.DataFrame | pl.LazyFrame) -> pl.LazyFrame:
     print(" - Coluna 'popularity' tratada.")
     return lf
 
-def tratar_avaliacoes(df: pl.DataFrame | pl.LazyFrame) -> pl.LazyFrame:
+def tratar_avaliacoes_do_filme(df: pl.DataFrame | pl.LazyFrame) -> pl.LazyFrame:
     """
     Trata as colunas 'vote_average' (Float64) e 'vote_count' (Int64),
     lidando com nulos e garantindo a tipagem correta.
@@ -280,13 +280,13 @@ def tratar_avaliacoes(df: pl.DataFrame | pl.LazyFrame) -> pl.LazyFrame:
         pl.LazyFrame: O LazyFrame com as colunas de avaliação tratadas.
     """
     if not isinstance(df, pl.LazyFrame):
-        lf = df.lazy()
+        lazy_frame = data_frame.lazy()
     else:
-        lf = df
+        lazy_frame = df
 
     print(" - Iniciando tratamento das colunas 'vote_average' e 'vote_count'.")
 
-    lf = lf.with_columns([
+    lazy_frame = lf.with_columns([
         # --- Tratamento de 'vote_average' ---
         pl.col("vote_average")
         .cast(pl.Float64, strict=False) # Garante Float64; falhas viram nulas
@@ -317,13 +317,13 @@ def tratar_overview(df: pl.DataFrame | pl.LazyFrame) -> pl.LazyFrame:
         pl.LazyFrame: O LazyFrame com a coluna 'overview' tratada.
     """
     if not isinstance(df, pl.LazyFrame):
-        lf = df.lazy()
+        lazy_frame = data_frame.lazy()
     else:
-        lf = df
+        lazy_frame = df
 
     print(" - Iniciando tratamento da coluna 'overview'.")
 
-    lf = lf.with_columns([
+    lazy_frame = lf.with_columns([
         pl.col("overview")
         .cast(pl.String, strict=False)
         .str.strip_chars()
@@ -335,7 +335,7 @@ def tratar_overview(df: pl.DataFrame | pl.LazyFrame) -> pl.LazyFrame:
     print(" Coluna 'overview' tratada")
     return lf
 
-def tratar_financas(df: pl.DataFrame | pl.LazyFrame) -> pl.LazyFrame:
+def tratar_financas_do_filme(df: pl.DataFrame | pl.LazyFrame) -> pl.LazyFrame:
     """
     Trata as colunas 'budget' e 'revenue', garantindo a tipagem Int64,
     lidando com nulos e valores zero (considerando-os como ausentes).
@@ -347,23 +347,25 @@ def tratar_financas(df: pl.DataFrame | pl.LazyFrame) -> pl.LazyFrame:
         pl.LazyFrame: O LazyFrame com as colunas financeiras tratadas.
     """
     if not isinstance(df, pl.LazyFrame):
-        lf = df.lazy()
+        lazy_frame = data_frame.lazy()
     else:
-        lf = df
+        lazy_frame = df
 
     print(" - Iniciando tratamento das colunas 'budget' e 'revenue'.")
 
-    lf = lf.with_columns([
+    lazy_frame = lf.with_columns([
         pl.col("budget")
         .cast(pl.Int64, strict=False)
         .replace(0, None)
-        .fill_null(0)  # Use 0 instead of "Valor ausente"
+        .fill_null("Valor ausente")
         .clip(lower_bound=0)
         .alias("budget"),
+
+        # --- Tratamento de 'revenue' ---
         pl.col("revenue")
         .cast(pl.Int64, strict=False)
         .replace(0, None)
-        .fill_null(0)  # Use 0 instead of "Valor ausente"
+        .fill_null("Valor ausente")
         .clip(lower_bound=0)
         .alias("revenue")
     ])
@@ -383,17 +385,17 @@ def tratar_duracao_em_minutos(df: pl.DataFrame | pl.LazyFrame) -> pl.LazyFrame:
         pl.LazyFrame: O LazyFrame com a coluna 'runtime' tratada.
     """
     if not isinstance(df, pl.LazyFrame):
-        lf = df.lazy()
+        lazy_frame = data_frame.lazy()
     else:
-        lf = df
+        lazy_frame = df
 
     print(" - Iniciando tratamento da coluna 'runtime'.")
 
-    lf = lf.with_columns([
+    lazy_frame = lf.with_columns([
         pl.col("runtime")
         .cast(pl.Int64, strict=False)
         .replace(0, None)
-        .fill_null(0)  # Use 0 instead of "Valor Ausente"
+        .fill_null("Valor Ausente")
         .clip(lower_bound=0)
         .alias("runtime")
     ])
@@ -412,13 +414,13 @@ def tratar_linguagem_e_titulo_originais(df: pl.DataFrame | pl.LazyFrame) -> pl.L
         pl.LazyFrame: O LazyFrame com as colunas tratadas.
     """
     if not isinstance(df, pl.LazyFrame):
-        lf = df.lazy()
+        lazy_frame = data_frame.lazy()
     else:
-        lf = df
+        lazy_frame = df
 
     print(" - Iniciando tratamento das colunas 'original_title' e 'original_language'.")
 
-    lf = lf.with_columns([
+    lazy_frame = lf.with_columns([
         # --- Tratamento de 'original_title ---
         pl.col("original_title")
         .cast(pl.String, strict=False)
@@ -452,18 +454,18 @@ def tratar_empresas_produtoras(df: pl.DataFrame | pl.LazyFrame) -> pl.LazyFrame:
         pl.LazyFrame: O LazyFrame com a coluna 'production_companies' tratada.
     """
     if not isinstance(df, pl.LazyFrame):
-        lf = df.lazy()
+        lazy_frame = data_frame.lazy()
     else:
-        lf = df
+        lazy_frame = df
 
     print(" - Iniciando tratamento da coluna 'production_companies'.")
     
-    lf = lf.with_columns([
+    lazy_frame = lf.with_columns([
         pl.col("production_companies")
         .cast(pl.List(pl.String), strict=False)
         .fill_null([])
         .list.eval(
-            pl.element().str.strip_chars().str.replace("", "Empresa Desconhecida") 
+            pl.element().str.strip_chars().str.replace("").fill_null("Empresa Desconhecida") #type: ignore
         )
         .alias("production_companies")                                                                                                                               
     ])
@@ -482,13 +484,13 @@ def tratar_status_do_filme(df: pl.DataFrame | pl.LazyFrame) -> pl.LazyFrame:
         pl.LazyFrame: O LazyFrame com a coluna 'status' tratada.
     """
     if not isinstance(df, pl.LazyFrame):
-        lf = df.lazy()
+        lazy_frame = data_frame.lazy()
     else:
-        lf = df
+        lazy_frame = df
 
     print(" - Iniciando tratamento da coluna 'status'.")
 
-    lf = lf.with_columns([
+    lazy_frame = lf.with_columns([
         pl.col("status")
         .cast(pl.String, strict=False)    # Garante que é string; falhas viram nulo
         .str.strip_chars()                # Remove espaços em branco do início e fim
@@ -515,13 +517,13 @@ def tratar_diretores(df: pl.DataFrame | pl.LazyFrame) -> pl.LazyFrame:
         pl.LazyFrame: O LazyFrame com a coluna 'director' tratada.
     """
     if not isinstance(df, pl.LazyFrame):
-        lf = df.lazy()
+        lazy_frame = data_frame.lazy()
     else:
-        lf = df
+        lazy_frame = df
 
     print(" - Iniciando tratamento da coluna 'director'.")
 
-    lf = lf.with_columns([
+    lazy_frame = lf.with_columns([
         pl.col("director")
         .cast(pl.List(pl.String), strict=False)  # Garante que é List(String); falhas viram nulo
         .fill_null([])                          # Preenche nulos (coluna inteira) com lista vazia

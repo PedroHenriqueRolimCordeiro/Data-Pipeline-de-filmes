@@ -52,8 +52,9 @@ def obter_detalhes_filmes(movie_id):
 def mapeamento_genero(api_key: str):
     tmdb.API_KEY = api_key
     genre = tmdb.Genres()
-    response = genre.movie_list(language="pt-BR")
+    response = genre.movie_list()
 
     id_nome = {g["id"]: g["name"] for g in response["genres"]}
 
     return id_nome
+

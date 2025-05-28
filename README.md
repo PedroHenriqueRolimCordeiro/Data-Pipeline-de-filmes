@@ -13,6 +13,6 @@ Este projeto implementa uma pipeline ETL (Extract, Transform, Load) para coletar
 - Python
 - Polars
 - Requests
-- SQL (MySQL)
+- SQL (SQLite)
 - Git/GitHub
 - Tmdbsimple

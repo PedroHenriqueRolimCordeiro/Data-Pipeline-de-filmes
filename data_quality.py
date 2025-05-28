@@ -182,12 +182,11 @@ def tratar_generos(df: pl.DataFrame | pl.LazyFrame, genero_mapa: dict) -> pl.Laz
     else:
         lf = df
     
-    #Tratar valores nulos ou vazios antes do mapeamento 
     lf = lf.with_columns([
         pl.col("genre_ids")
-        .cast(pl.List(pl.Int64), strict=False) #Garante que é uma lista de inteiros
-        .fill_null(pl.lit([]).cast(pl.List(pl.Int64))) #Preenche nulos com listas vazias para evitar erros
-        .alias("genre_ids_cleaned") #Coluna temporaria para limpeza
+        .cast(pl.List(pl.Int64), strict=False) 
+        .fill_null(pl.lit([]).cast(pl.List(pl.Int64))) 
+        .alias("genre_ids_cleaned") 
     ])
 
     # Mapeia cada id da lista para seu respectivo nome

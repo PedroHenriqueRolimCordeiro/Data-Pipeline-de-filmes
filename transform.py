@@ -1,8 +1,8 @@
 import polars as pl
 import os
 from dotenv import load_dotenv
-from data_quality import * # Mantido por enquanto, mas considere imports explícitos
-from utils import mapeamento_genero # Importa explicitamente mapeamento_genero de utils
+from data_quality import * 
+from utils import mapeamento_genero 
 
 load_dotenv()
 
@@ -12,9 +12,6 @@ if TMDB_API_KEY is None:
         "A variável de ambiente 'TMDB_API_KEY' não está definida. Por favor, configure-a no seu arquivo .env."
     )
 TMDB_API_KEY: str
-
-# Removido o carregamento direto, pois agora é tratado pelo main.py
-# df = pl.read_parquet("/home/pedro/Pipeline ETL movies/filmes_tmdb_completos.parquet")
 
 
 # --- Função de Transformação Principal ---
@@ -28,9 +25,6 @@ def transform(lf: pl.LazyFrame) -> pl.LazyFrame:
     Returns:
         pl.LazyFrame: O LazyFrame transformado.
     """
-    # Converte para LazyFrame, se necessário (já tratado em main.py)
-    # if not isinstance(lf, pl.LazyFrame):
-    #     lf = lf.lazy()
 
     print("\n--- Iniciando Transformações ---")
 
@@ -49,7 +43,6 @@ def transform(lf: pl.LazyFrame) -> pl.LazyFrame:
     print(f" - Mapeamento de gêneros obtido (primeiros 5: {list(genero_mapa.items())[:5]}).")
 
     # Aplica o tratamento de gênero, passando o LazyFrame já com títulos tratados
-    # Garante que esta chamada usa o tratar_generos correto de data_quality.py
     lf = tratar_generos(lf, genero_mapa)
 
     # 4. Tratamento da coluna 'release_date'
@@ -102,7 +95,6 @@ def transform(lf: pl.LazyFrame) -> pl.LazyFrame:
     lf_reogarnizado = lf.select(nova_ordem_colunas)
 
     # 13. Renomear colunas
-    # 12. Renomear colunas
     mapa_renomear = {
     'id': 'Id',
     'title': 'Titulo',
@@ -116,9 +108,9 @@ def transform(lf: pl.LazyFrame) -> pl.LazyFrame:
     'revenue': 'Receita',
     'runtime': 'Duração',
     'original_language': 'Idioma_Original',
-    'production_companies': 'Produtoras', # ALTERADO: Removido "(as)"
+    'production_companies': 'Produtoras', 
     'status': 'Status',
-    'director': 'Diretores',           # ALTERADO: Removido "(es)"
+    'director': 'Diretores',           
     'poster_path': 'poster_path',
     'backdrop_path': 'backdrop_path',
     'genero': 'Generos'
